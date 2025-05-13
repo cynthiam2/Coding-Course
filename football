@@ -1,0 +1,91 @@
+SELECT TOP 100 *
+FROM dbo.FootballMatch
+
+SELECT 
+     DATENAME(YEAR, fm.[Date]) AS YearName, 
+     DATENAME(MONTH, fm.[Date]) AS MonthName, 
+     MONTH(fm.[Date]) AS MonthNumber, 
+     COUNT(*) TotalMatches
+FROM FootballMatch fm 
+GROUP BY DATENAME(MONTH, fm.[Date]), 
+         MONTH(fm.[Date])
+ORDER BY YearName, MonthNumber ASC
+
+--how many goals scored in total?
+
+;WITH  CTE AS (
+SELECT
+    fm.HomeTeam AS Team
+    , SUM(fm.FTHG) AS TotalGoals 
+FROM
+    FootballMatch fm
+group by
+    fm.HomeTeam
+UNION ALL
+SELECT
+    fm.AwayTeam
+    , SUM(fm.FTAG)
+FROM
+    FootballMatch fm
+group by
+    fm.AwayTeam  
+)
+SELECT CTE.Team, SUM(CTE.TotalGoals) AS TotalGoals 
+FROM CTE 
+GROUP BY CTE.Team 
+ORDER BY TotalGoals DESC;
+
+
+--Using CTE is most efficent here because:
+-- Readability - top to bottom 
+-- Semi-colon cuts off other queries prior - good standard
+--
+-- 1. SUM the total goals in the home team
+--2. SUM the total goals in the away teams 
+--3. Sum both together to get total goals
+
+--Temp table approach--
+
+DROP TABLE IF EXISTS #Leaguetable
+
+SELECT
+--Home 
+     fm.HomeTeam AS Team
+   -- , (CASE WHEN fm.HTR = 'H' THEN 1 ELSE 0 END) AS 'Won' -- When boolean expressio then X
+    , (CASE fm.HTR WHEN 'H' THEN 1 ELSE 0 END) AS 'Won'
+    , (CASE fm.HTR WHEN 'D' THEN 1 ELSE 0 END) AS 'Draw'
+    , (CASE fm.HTR WHEN 'L' THEN 1 ELSE 0 END) AS 'Lost' -- Simple expression - Column 
+    , 
+    ,fm.FTHG AS GF
+    ,fm.FTAG AS GA
+INTO #Leaguetable
+FROM
+    FootballMatch fm
+
+UNION ALL
+SELECT
+--Away 
+     fm.AwayTeam
+    ,(CASE fm.FTR WHEN 'H' THEN 1 ELSE 0 END) AS 'Won'
+    ,(CASE fm.FTR WHEN 'D' THEN 1 ELSE 0 END) AS 'Draw'
+    ,(CASE fm.FTR WHEN 'L' THEN 1 ELSE 0 END) AS 'Lost'
+    ,fm.FTAG 
+    ,fm.FTHG 
+FROM
+    FootballMatch fm
+
+SELECT * FROM #Leaguetable
+--Validate everything pulling correctly
+
+SELECT 
+--Team Sums
+     Team
+    ,COUNT(*) GamesPlayed
+    , SUM(Won) 
+    , SUM(Draw)
+    , SUM(Lost)
+    ,SUM(GF) GoalsScored
+    ,SUM(GA) GoalsConceaded
+FROM #Leaguetable 
+GROUP BY Team 
+ORDER BY Team;
